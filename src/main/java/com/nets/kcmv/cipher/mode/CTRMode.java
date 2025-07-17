@@ -1,6 +1,6 @@
 package com.nets.kcmv.cipher.mode;
 
-import com.nets.kcmv.engine.blockcipher.BlockCipherEngine;
+import com.nets.kcmv.engine.blockcipher.BlockCipher;
 import com.nets.kcmv.padding.BlockCipherPadding;
 import com.nets.kcmv.padding.NoPadding;
 import com.nets.kcmv.padding.PKCS5Padding;
@@ -20,14 +20,14 @@ import java.util.Arrays;
 
 public class CTRMode implements BlockCipherMode {
 
-    private BlockCipherEngine engine;
+    private BlockCipher engine;
     private byte[] counter;
     private byte[] keystreamBlock;
     private int byteCount;
     private BlockCipherPadding padding;
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
-    public CTRMode(BlockCipherEngine engine) {
+    public CTRMode(BlockCipher engine) {
         this.engine = engine;
         this.counter = new byte[engine.getBlockSize()];
         this.keystreamBlock = new byte[engine.getBlockSize()];
@@ -49,8 +49,7 @@ public class CTRMode implements BlockCipherMode {
         System.arraycopy(iv, 0, this.counter, 0, engine.getBlockSize());
         this.byteCount = 0;
 
-        engine.setKey(key.getEncoded());
-        engine.setupEncRoundKeys();
+        engine.init(BlockCipher.Mode.ENCRYPT, key.getEncoded());
         buffer.reset();
     }
 
@@ -62,11 +61,7 @@ public class CTRMode implements BlockCipherMode {
 
         for (int i = 0; i < data.length; i++) {
             if (byteCount == 0) {
-                try {
-                    engine.encrypt(counter, 0, keystreamBlock, 0);
-                } catch (InvalidKeyException e) {
-                    throw new IllegalStateException("Error during CTR update operation", e);
-                }
+                engine.encrypt(counter, 0, keystreamBlock, 0);
                 incrementCounter();
             }
             output[i] = (byte) (data[i] ^ keystreamBlock[byteCount]);
@@ -94,11 +89,7 @@ public class CTRMode implements BlockCipherMode {
 
         for (int i = 0; i < data.length; i++) {
             if (byteCount == 0) {
-                try {
-                    engine.encrypt(counter, 0, keystreamBlock, 0);
-                } catch (InvalidKeyException e) {
-                    throw new IllegalStateException("Error during CTR doFinal operation", e);
-                }
+                engine.encrypt(counter, 0, keystreamBlock, 0);
                 incrementCounter();
             }
             finalOutput[i] = (byte) (data[i] ^ keystreamBlock[byteCount]);

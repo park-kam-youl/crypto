@@ -36,11 +36,12 @@ public class LEACMAC extends MacSpi {
             throw new java.security.InvalidAlgorithmParameterException("LEA-CMAC does not use parameters");
         }
 
-        engine.init(LeaEngine.Mode.ENCRYPT, key.getEncoded());
+        engine.setKey(key.getEncoded());
+        engine.setupEncRoundKeys();
 
         // Generate subkeys K1 and K2
         byte[] L = new byte[BLOCK_SIZE];
-        engine.processBlock(new byte[BLOCK_SIZE], 0, L, 0);
+        engine.encrypt(new byte[BLOCK_SIZE], 0, L, 0);
 
         k1 = generateSubkey(L);
         k2 = generateSubkey(k1.clone());
@@ -117,7 +118,12 @@ public class LEACMAC extends MacSpi {
 
     private void processBlock(byte[] in, int inOff) {
         xor(mac, mac, in, inOff);
-        engine.processBlock(mac, 0, mac, 0);
+        try {
+            engine.encrypt(mac, 0, mac, 0);
+        } catch (InvalidKeyException e) {
+            // This should not happen as key is already set
+            throw new RuntimeException(e);
+        }
     }
 
     private byte[] generateSubkey(byte[] key) {

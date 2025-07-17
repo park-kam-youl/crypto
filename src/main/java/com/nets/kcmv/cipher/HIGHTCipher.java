@@ -1,15 +1,22 @@
 package com.nets.kcmv.cipher;
 
 import com.nets.kcmv.engine.blockcipher.HIGHTEngine;
-import com.nets.kcmv.padding.BlockCipherPadding;
-import com.nets.kcmv.padding.NoPadding;
-import com.nets.kcmv.padding.PKCS5Padding;
+import com.nets.kcmv.cipher.mode.BlockCipherMode;
+import com.nets.kcmv.cipher.mode.ECBMode;
+import com.nets.kcmv.cipher.mode.CBCMode;
+import com.nets.kcmv.cipher.mode.CFBMode;
+import com.nets.kcmv.cipher.mode.CTRMode;
+import com.nets.kcmv.cipher.mode.GCMMode;
+import com.nets.kcmv.cipher.mode.OFBMode;
+import com.nets.kcmv.cipher.mode.CCMMode;
 
 import javax.crypto.CipherSpi;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.GCMParameterSpec;
 import java.io.ByteArrayOutputStream;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -18,147 +25,190 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
-public class HIGHTCipher extends CipherSpi {
+public class HIGHTCipher extends CipherSpi
+{
 
-    private HIGHTEngine engine = new HIGHTEngine();
-    private boolean forEncryption;
-    private BlockCipherPadding padding;
-    private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    private BlockCipherMode mode;
+    private HIGHTEngine engine; // Add engine instance
 
-    public HIGHTCipher() {
-        this.padding = new NoPadding(); // Default to NoPadding
+    public HIGHTCipher()
+    {
+        this.engine = new HIGHTEngine();
     }
 
     @Override
-    protected void engineSetMode(String mode) throws java.security.NoSuchAlgorithmException {
-        if (!mode.equalsIgnoreCase("ECB")) {
-            throw new java.security.NoSuchAlgorithmException("Only ECB mode is supported");
+    protected void engineSetMode(String mode) throws java.security.NoSuchAlgorithmException
+    {
+        HIGHTEngine engine = new HIGHTEngine();
+        if (mode.equalsIgnoreCase("ECB"))
+        {
+            this.mode = new ECBMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("CBC"))
+        {
+            this.mode = new CBCMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("CFB"))
+        {
+            this.mode = new CFBMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("CTR"))
+        {
+            this.mode = new CTRMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("OFB"))
+        {
+            this.mode = new OFBMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("GCM"))
+        {
+            this.mode = new GCMMode(engine);
+        }
+        else if (mode.equalsIgnoreCase("CCM"))
+        {
+            this.mode = new CCMMode(engine);
+        }
+        else
+        {
+            throw new java.security.NoSuchAlgorithmException("Unsupported mode: " + mode);
         }
     }
 
     @Override
-    protected void engineSetPadding(String padding) throws NoSuchPaddingException {
-        if (padding.equalsIgnoreCase("NoPadding")) {
-            this.padding = new NoPadding();
-        } else if (padding.equalsIgnoreCase("PKCS5Padding")) {
-            this.padding = new PKCS5Padding();
-        } else {
-            throw new NoSuchPaddingException("Padding " + padding + " not supported");
+    protected void engineSetPadding(String padding) throws NoSuchPaddingException
+    {
+        if (this.mode instanceof ECBMode)
+        {
+            ((ECBMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof CBCMode)
+        {
+            ((CBCMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof CFBMode)
+        {
+            ((CFBMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof CTRMode)
+        {
+            ((CTRMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof OFBMode)
+        {
+            ((OFBMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof GCMMode)
+        {
+            ((GCMMode) this.mode).setPadding(padding);
+        }
+        else if (this.mode instanceof CCMMode)
+        {
+            ((CCMMode) this.mode).setPadding(padding);
+        }
+        else
+        {
+            throw new NoSuchPaddingException("Padding can only be set for BlockCipherMode implementations.");
         }
     }
 
     @Override
-    protected int engineGetBlockSize() {
-        return engine.getBlockSize();
+    protected int engineGetBlockSize()
+    {
+        return mode.getBlockSize();
     }
 
     @Override
-    protected int engineGetOutputSize(int inputLen) {
-        int total = buffer.size() + inputLen;
-        if (forEncryption) {
-            // For encryption, consider padding
-            return total + (engineGetBlockSize() - (total % engineGetBlockSize()));
-        } else {
-            // For decryption, output size is determined after unpadding
-            return total; 
+    protected int engineGetOutputSize(int inputLen)
+    {
+        return mode.getOutputSize(inputLen);
+    }
+
+    @Override
+    protected byte[] engineGetIV()
+    {
+        return mode.getIV();
+    }
+
+    @Override
+    protected java.security.AlgorithmParameters engineGetParameters()
+    {
+        if (mode.getIV() != null)
+        {
+            try
+            {
+                java.security.AlgorithmParameters params = java.security.AlgorithmParameters.getInstance("HIGHT");
+                params.init(new IvParameterSpec(mode.getIV()));
+                return params;
+            }
+            catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidParameterSpecException e)
+            {
+                throw new IllegalStateException(e);
+            }
         }
-    }
-
-    @Override
-    protected byte[] engineGetIV() {
         return null;
     }
 
     @Override
-    protected java.security.AlgorithmParameters engineGetParameters() {
-        return null; // No algorithm parameters to return for ECB mode
+    protected void engineInit(int opmode, Key key, SecureRandom random) throws InvalidKeyException
+    {
+        try
+        {
+            mode.init(opmode, key, null, random);
+        }
+        catch (InvalidAlgorithmParameterException e)
+        {
+            throw new InvalidKeyException(e);
+        }
     }
 
     @Override
-    protected void engineInit(int opmode, Key key, SecureRandom random) throws InvalidKeyException {
-        this.forEncryption = (opmode == javax.crypto.Cipher.ENCRYPT_MODE);
-        engine.init(forEncryption ? HIGHTEngine.Mode.ENCRYPT : HIGHTEngine.Mode.DECRYPT, key.getEncoded());
-        buffer.reset();
+    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) throws InvalidKeyException, InvalidAlgorithmParameterException
+    {
+        mode.init(opmode, key, params, random);
     }
 
     @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) throws InvalidKeyException, InvalidAlgorithmParameterException {
-        engineInit(opmode, key, random);
-    }
-
-    @Override
-    protected void engineInit(int opmode, Key key, AlgorithmParameters params, SecureRandom random) throws InvalidKeyException, InvalidAlgorithmParameterException {
-        engineInit(opmode, key, random);
-    }
-
-    @Override
-    protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen) {
-        buffer.write(input, inputOffset, inputLen);
-        byte[] data = buffer.toByteArray();
-        int blockSize = engineGetBlockSize();
-        int numBlocks = data.length / blockSize;
-        byte[] output = new byte[numBlocks * blockSize];
-
-        for (int i = 0; i < numBlocks; i++) {
-            if (forEncryption) {
-                engine.encrypt(data, i * blockSize, output, i * blockSize);
-            } else {
-                engine.decrypt(data, i * blockSize, output, i * blockSize);
+    protected void engineInit(int opmode, Key key, AlgorithmParameters params, SecureRandom random) throws InvalidKeyException, InvalidAlgorithmParameterException
+    {
+        if (params != null)
+        {
+            try
+            {
+                AlgorithmParameterSpec paramSpec = params.getParameterSpec(IvParameterSpec.class);
+                mode.init(opmode, key, paramSpec, random);
+            }
+            catch (java.security.spec.InvalidParameterSpecException e)
+            {
+                throw new InvalidAlgorithmParameterException(e);
             }
         }
-        buffer.reset();
-        buffer.write(data, numBlocks * blockSize, data.length % blockSize);
-        return output;
+        else
+        {
+            mode.init(opmode, key, null, random);
+        }
     }
 
     @Override
-    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
-        byte[] result = engineUpdate(input, inputOffset, inputLen);
-        if (output.length - outputOffset < result.length) {
-            throw new ShortBufferException();
-        }
-        System.arraycopy(result, 0, output, outputOffset, result.length);
-        return result.length;
+    protected byte[] engineUpdate(byte[] input, int inputOffset, int inputLen)
+    {
+        return mode.update(input, inputOffset, inputLen);
     }
 
     @Override
-    protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen) throws IllegalBlockSizeException, BadPaddingException {
-        buffer.write(input, inputOffset, inputLen);
-        byte[] data = buffer.toByteArray();
-        byte[] finalOutput;
-
-        if (forEncryption) {
-            byte[] padded = padding.pad(data, 0, data.length, engine.getBlockSize());
-            finalOutput = new byte[padded.length];
-            for (int i = 0; i < padded.length; i += engine.getBlockSize()) {
-                engine.encrypt(padded, i, finalOutput, i);
-            }
-        } else {
-            byte[] decrypted = new byte[data.length];
-            for (int i = 0; i < data.length; i += engineGetBlockSize()) {
-                engine.decrypt(data, i, decrypted, i);
-            }
-
-            if (padding instanceof NoPadding) {
-                if (data.length % engineGetBlockSize() != 0) {
-                    throw new IllegalBlockSizeException("Input length must be a multiple of the block size for NoPadding.");
-                }
-                finalOutput = decrypted; // No unpadding for NoPadding
-            } else { // PKCS5Padding
-                finalOutput = padding.unpad(decrypted, 0, decrypted.length, engineGetBlockSize());
-            }
-        }
-        buffer.reset();
-        return finalOutput;
+    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException
+    {
+        return mode.update(input, inputOffset, inputLen, output, outputOffset);
     }
 
     @Override
-    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
-        byte[] result = engineDoFinal(input, inputOffset, inputLen);
-        if (output.length - outputOffset < result.length) {
-            throw new ShortBufferException();
-        }
-        System.arraycopy(result, 0, output, outputOffset, result.length);
-        return result.length;
+    protected byte[] engineDoFinal(byte[] input, int inputOffset, int inputLen) throws IllegalBlockSizeException, BadPaddingException
+    {
+        return mode.doFinal(input, inputOffset, inputLen);
+    }
+
+    @Override
+    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException, IllegalBlockSizeException, BadPaddingException
+    {
+        return mode.doFinal(input, inputOffset, inputLen, output, outputOffset);
     }
 }

@@ -1,6 +1,8 @@
 package com.nets.kcmv.engine.blockcipher;
 
-public class SEEDEngine
+import java.security.InvalidKeyException;
+
+public class SEEDEngine implements BlockCipherEngine
 {
 
     private static final int BIG_ENDIAN = 0;
@@ -151,100 +153,32 @@ public class SEEDEngine
     private static final int BLOCK_SIZE_SEED = 16;
 
     private int[] roundKeys = new int[32];
+    private byte[] masterKey;
 
-    private static byte GetB0(int A)
+    @Override
+    public void setKey(byte[] userKey) throws InvalidKeyException
     {
-        return (byte) (A & 0x0ff);
+        if (userKey.length != 16)
+        {
+            throw new InvalidKeyException("Key size must be 16 bytes for SEED");
+        }
+        this.masterKey = userKey;
     }
 
-    private static byte GetB1(int A)
+    @Override
+    public void setupEncRoundKeys() throws InvalidKeyException
     {
-        return (byte) ((A >> 8) & 0x0ff);
-    }
-
-    private static byte GetB2(int A)
-    {
-        return (byte) ((A >> 16) & 0x0ff);
-    }
-
-    private static byte GetB3(int A)
-    {
-        return (byte) ((A >> 24) & 0x0ff);
-    }
-
-    private static void SeedRound(int[] T, int[] LR, int L0, int L1, int R0, int R1, int[] K, int K_offset)
-    {
-        T[0] = LR[R0] ^ K[K_offset + 0];
-        T[1] = LR[R1] ^ K[K_offset + 1];
-        T[1] ^= T[0];
-        T[1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
-        T[0] += T[1];
-        T[0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
-        T[1] += T[0];
-        T[1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
-        T[0] += T[1];
-        LR[L0] ^= T[0];
-        LR[L1] ^= T[1];
-    }
-
-    private static int EndianChange(int dwS)
-    {
-        return (((dwS) << (8)) | (((dwS) >> (32 - (8))) & 0x000000ff)) & 0x00ff00ff | (((dwS) << (24)) | (((dwS) >> (32 - (24))) & 0x00ffffff)) & 0xff00ff00;
-    }
-
-    private static final int KC0 = 0x9e3779b9;
-    private static final int KC1 = 0x3c6ef373;
-    private static final int KC2 = 0x78dde6e6;
-    private static final int KC3 = 0xf1bbcdcc;
-    private static final int KC4 = 0xe3779b99;
-    private static final int KC5 = 0xc6ef3733;
-    private static final int KC6 = 0x8dde6e67;
-    private static final int KC7 = 0x1bbcdccf;
-    private static final int KC8 = 0x3779b99e;
-    private static final int KC9 = 0x6ef3733c;
-    private static final int KC10 = 0xdde6e678;
-    private static final int KC11 = 0xbbcdccf1;
-    private static final int KC12 = 0x779b99e3;
-    private static final int KC13 = 0xef3733c6;
-    private static final int KC14 = 0xde6e678d;
-    private static final int KC15 = 0xbcdccf1b;
-
-    private static final int ABCD_A = 0;
-    private static final int ABCD_B = 1;
-    private static final int ABCD_C = 2;
-    private static final int ABCD_D = 3;
-
-    private static void RoundKeyUpdate0(int[] T, int[] K, int K_offset, int[] ABCD, int KC)
-    {
-        T[0] = ABCD[ABCD_A] + ABCD[ABCD_C] - KC;
-        T[1] = ABCD[ABCD_B] + KC - ABCD[ABCD_D];
-        K[K_offset + 0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
-        K[K_offset + 1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
-        T[0] = ABCD[ABCD_A];
-        ABCD[ABCD_A] = ((ABCD[ABCD_A] >> 8) & 0x00ffffff) ^ (ABCD[ABCD_B] << 24);
-        ABCD[ABCD_B] = ((ABCD[ABCD_B] >> 8) & 0x00ffffff) ^ (T[0] << 24);
-    }
-
-    private static void RoundKeyUpdate1(int[] T, int[] K, int K_offset, int[] ABCD, int KC)
-    {
-        T[0] = ABCD[ABCD_A] + ABCD[ABCD_C] - KC;
-        T[1] = ABCD[ABCD_B] + KC - ABCD[ABCD_D];
-        K[K_offset + 0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
-        K[K_offset + 1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
-        T[0] = ABCD[ABCD_C];
-        ABCD[ABCD_C] = (ABCD[ABCD_C] << 8) ^ ((ABCD[ABCD_D] >> 24) & 0x000000ff);
-        ABCD[ABCD_D] = (ABCD[ABCD_D] << 8) ^ ((T[0] >> 24) & 0x000000ff);
-    }
-
-    public void setKey(byte[] userKey)
-    {
+        if (masterKey == null)
+        {
+            throw new InvalidKeyException("Master key not set.");
+        }
         int[] ABCD = new int[4];
         int[] T = new int[2];
 
-        ABCD[ABCD_A] = byte_to_int(userKey, 0 * 4, ENDIAN);
-        ABCD[ABCD_B] = byte_to_int(userKey, 1 * 4, ENDIAN);
-        ABCD[ABCD_C] = byte_to_int(userKey, 2 * 4, ENDIAN);
-        ABCD[ABCD_D] = byte_to_int(userKey, 3 * 4, ENDIAN);
+        ABCD[ABCD_A] = byte_to_int(masterKey, 0 * 4, ENDIAN);
+        ABCD[ABCD_B] = byte_to_int(masterKey, 1 * 4, ENDIAN);
+        ABCD[ABCD_C] = byte_to_int(masterKey, 2 * 4, ENDIAN);
+        ABCD[ABCD_D] = byte_to_int(masterKey, 3 * 4, ENDIAN);
 
         if (BIG_ENDIAN != ENDIAN)
         {
@@ -277,8 +211,22 @@ public class SEEDEngine
         roundKeys[31] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
     }
 
-    public void encrypt(byte[] in, int inOff, byte[] out, int outOff)
+    @Override
+    public void setupDecRoundKeys() throws InvalidKeyException
     {
+        // SEED uses the same round keys for encryption and decryption, but applied in reverse order
+        // The decrypt method handles the reverse application of round keys.
+        // So, no explicit reversal of roundKeys array is needed here.
+        setupEncRoundKeys(); // Ensure encryption keys are set up first
+    }
+
+    @Override
+    public void encrypt(byte[] in, int inOff, byte[] out, int outOff) throws InvalidKeyException
+    {
+        if (roundKeys == null)
+        {
+            throw new InvalidKeyException("Round keys not set. Call setupEncRoundKeys() first.");
+        }
         int[] LR = new int[4];
         int[] T = new int[2];
 
@@ -320,8 +268,13 @@ public class SEEDEngine
         int_array_to_byte(out, outOff, LR, 2, 0, 3, 1);
     }
 
-    public void decrypt(byte[] in, int inOff, byte[] out, int outOff)
+    @Override
+    public void decrypt(byte[] in, int inOff, byte[] out, int outOff) throws InvalidKeyException
     {
+        if (roundKeys == null)
+        {
+            throw new InvalidKeyException("Round keys not set. Call setupDecRoundKeys() first.");
+        }
         int[] LR = new int[4];
         int[] T = new int[2];
 
@@ -361,6 +314,12 @@ public class SEEDEngine
         }
 
         int_array_to_byte(out, outOff, LR, 2, 0, 3, 1);
+    }
+
+    @Override
+    public int getBlockSize()
+    {
+        return BLOCK_SIZE_SEED;
     }
 
     private static int byte_to_int(byte[] src, int src_offset, int ENDIAN)
@@ -409,8 +368,87 @@ public class SEEDEngine
         int_to_byte_unit(dst, dst_offset + 12, src[order[3]], ENDIAN);
     }
 
-    public int getBlockSize()
+    private static final int KC0 = 0x9e3779b9;
+    private static final int KC1 = 0x3c6ef373;
+    private static final int KC2 = 0x78dde6e6;
+    private static final int KC3 = 0xf1bbcdcc;
+    private static final int KC4 = 0xe3779b99;
+    private static final int KC5 = 0xc6ef3733;
+    private static final int KC6 = 0x8dde6e67;
+    private static final int KC7 = 0x1bbcdccf;
+    private static final int KC8 = 0x3779b99e;
+    private static final int KC9 = 0x6ef3733c;
+    private static final int KC10 = 0xdde6e678;
+    private static final int KC11 = 0xbbcdccf1;
+    private static final int KC12 = 0x779b99e3;
+    private static final int KC13 = 0xef3733c6;
+    private static final int KC14 = 0xde6e678d;
+    private static final int KC15 = 0xbcdccf1b;
+
+    private static final int ABCD_A = 0;
+    private static final int ABCD_B = 1;
+    private static final int ABCD_C = 2;
+    private static final int ABCD_D = 3;
+
+    private static final byte GetB0(int A)
     {
-        return BLOCK_SIZE_SEED;
+        return (byte) (A & 0x0ff);
+    }
+
+    private static final byte GetB1(int A)
+    {
+        return (byte) ((A >> 8) & 0x0ff);
+    }
+
+    private static final byte GetB2(int A)
+    {
+        return (byte) ((A >> 16) & 0x0ff);
+    }
+
+    private static final byte GetB3(int A)
+    {
+        return (byte) ((A >> 24) & 0x0ff);
+    }
+
+    private static final void RoundKeyUpdate0(int T[], int[] K, int K_offset, int ABCD[], int KC)
+    {
+        T[0] = ABCD[ABCD_A] + ABCD[ABCD_C] - KC;
+        T[1] = ABCD[ABCD_B] + KC - ABCD[ABCD_D];
+        K[K_offset + 0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
+        K[K_offset + 1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
+        T[0] = ABCD[ABCD_A];
+        ABCD[ABCD_A] = ((ABCD[ABCD_A] >> 8) & 0x00ffffff) ^ (ABCD[ABCD_B] << 24);
+        ABCD[ABCD_B] = ((ABCD[ABCD_B] >> 8) & 0x00ffffff) ^ (T[0] << 24);
+    }
+
+    private static final void RoundKeyUpdate1(int T[], int[] K, int K_offset, int ABCD[], int KC)
+    {
+        T[0] = ABCD[ABCD_A] + ABCD[ABCD_C] - KC;
+        T[1] = ABCD[ABCD_B] + KC - ABCD[ABCD_D];
+        K[K_offset + 0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
+        K[K_offset + 1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
+        T[0] = ABCD[ABCD_C];
+        ABCD[ABCD_C] = (ABCD[ABCD_C] << 8) ^ ((ABCD[ABCD_D] >> 24) & 0x000000ff);
+        ABCD[ABCD_D] = (ABCD[ABCD_D] << 8) ^ ((T[0] >> 24) & 0x000000ff);
+    }
+
+    private static final void SeedRound(int[] T, int LR[], int L0, int L1, int R0, int R1, int[] K, int K_offset)
+    {
+        T[0] = LR[R0] ^ K[K_offset + 0];
+        T[1] = LR[R1] ^ K[K_offset + 1];
+        T[1] ^= T[0];
+        T[1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
+        T[0] += T[1];
+        T[0] = SS0[GetB0(T[0]) & 0x0ff] ^ SS1[GetB1(T[0]) & 0x0ff] ^ SS2[GetB2(T[0]) & 0x0ff] ^ SS3[GetB3(T[0]) & 0x0ff];
+        T[1] += T[0];
+        T[1] = SS0[GetB0(T[1]) & 0x0ff] ^ SS1[GetB1(T[1]) & 0x0ff] ^ SS2[GetB2(T[1]) & 0x0ff] ^ SS3[GetB3(T[1]) & 0x0ff];
+        T[0] += T[1];
+        LR[L0] ^= T[0];
+        LR[L1] ^= T[1];
+    }
+
+    private static final int EndianChange(int dwS)
+    {
+        return (((dwS << (8)) | ((dwS >>> (32 - 8)) & 0x000000ff)) & 0x00ff00ff) | (((dwS << (24)) | ((dwS >>> (32 - 24)) & 0x00ffffff)) & 0xff00ff00);
     }
 }

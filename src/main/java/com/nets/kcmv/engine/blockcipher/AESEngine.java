@@ -57,14 +57,17 @@ public class AESEngine implements BlockCipherEngine
 
     private byte[] masterKey;
 
-    public AESEngine() {
+    public AESEngine()
+    {
     }
 
     @Override
-    public void setKey(byte[] key) {
+    public void setKey(byte[] key)
+    {
         this.masterKey = key;
         int keyBits = key.length * 8;
-        switch (keyBits) {
+        switch (keyBits)
+        {
             case 128:
                 numRounds = 10;
                 break;
@@ -80,16 +83,20 @@ public class AESEngine implements BlockCipherEngine
     }
 
     @Override
-    public void setupEncRoundKeys() {
-        if (masterKey == null) {
+    public void setupEncRoundKeys()
+    {
+        if (masterKey == null)
+        {
             throw new IllegalStateException("Master key not set.");
         }
         this.roundKeys = expandKey(masterKey);
     }
 
     @Override
-    public void setupDecRoundKeys() {
-        if (roundKeys == null) {
+    public void setupDecRoundKeys()
+    {
+        if (roundKeys == null)
+        {
             setupEncRoundKeys(); // Ensure encryption keys are set up first
         }
         // AES decryption uses the same round keys as encryption, but applied in reverse order
@@ -376,7 +383,8 @@ public class AESEngine implements BlockCipherEngine
 
     private void xorWords(byte[] word1, byte[] word2)
     {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
             word1[i] ^= word2[i];
         }
     }

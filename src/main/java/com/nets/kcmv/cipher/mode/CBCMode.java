@@ -1,6 +1,6 @@
 package com.nets.kcmv.cipher.mode;
 
-import com.nets.kcmv.engine.blockcipher.BlockCipherEngine;
+import com.nets.kcmv.engine.blockcipher.BlockCipher;
 import com.nets.kcmv.padding.BlockCipherPadding;
 import com.nets.kcmv.padding.NoPadding;
 import com.nets.kcmv.padding.PKCS5Padding;
@@ -20,14 +20,14 @@ import java.util.Arrays;
 
 public class CBCMode implements BlockCipherMode {
 
-    private BlockCipherEngine engine;
+    private BlockCipher engine;
     private boolean forEncryption;
     private byte[] iv;
     private byte[] feedback;
     private BlockCipherPadding padding;
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
-    public CBCMode(BlockCipherEngine engine) {
+    public CBCMode(BlockCipher engine) {
         this.engine = engine;
         this.feedback = new byte[engine.getBlockSize()];
         this.padding = new NoPadding(); // Default to NoPadding
@@ -47,12 +47,7 @@ public class CBCMode implements BlockCipherMode {
         }
         System.arraycopy(this.iv, 0, this.feedback, 0, engine.getBlockSize());
 
-        engine.setKey(key.getEncoded());
-        if (this.forEncryption) {
-            engine.setupEncRoundKeys();
-        } else {
-            engine.setupDecRoundKeys();
-        }
+        engine.init(this.forEncryption ? BlockCipher.Mode.ENCRYPT : BlockCipher.Mode.DECRYPT, key.getEncoded());
         buffer.reset();
     }
 
@@ -65,24 +60,20 @@ public class CBCMode implements BlockCipherMode {
         byte[] output = new byte[numBlocks * blockSize];
 
         for (int i = 0; i < numBlocks; i++) {
-            try {
-                if (forEncryption) {
-                    for (int j = 0; j < blockSize; j++) {
-                        feedback[j] ^= data[i * blockSize + j];
-                    }
-                    engine.encrypt(feedback, 0, feedback, 0);
-                    System.arraycopy(feedback, 0, output, i * blockSize, blockSize);
-                } else {
-                    byte[] temp = new byte[blockSize];
-                    System.arraycopy(data, i * blockSize, temp, 0, blockSize);
-                    engine.decrypt(data, i * blockSize, output, i * blockSize);
-                    for (int j = 0; j < blockSize; j++) {
-                        output[i * blockSize + j] ^= feedback[j];
-                    }
-                    feedback = temp;
+            if (forEncryption) {
+                for (int j = 0; j < blockSize; j++) {
+                    feedback[j] ^= data[i * blockSize + j];
                 }
-            } catch (InvalidKeyException e) {
-                throw new RuntimeException("Error during CBC update operation", e);
+                engine.encrypt(feedback, 0, feedback, 0);
+                System.arraycopy(feedback, 0, output, i * blockSize, blockSize);
+            } else {
+                byte[] temp = new byte[blockSize];
+                System.arraycopy(data, i * blockSize, temp, 0, blockSize);
+                engine.decrypt(data, i * blockSize, output, i * blockSize);
+                for (int j = 0; j < blockSize; j++) {
+                    output[i * blockSize + j] ^= feedback[j];
+                }
+                feedback = temp;
             }
         }
         buffer.reset();
@@ -106,32 +97,28 @@ public class CBCMode implements BlockCipherMode {
         byte[] data = buffer.toByteArray();
         byte[] finalOutput;
 
-        try {
-            if (forEncryption) {
-                byte[] padded = padding.pad(data, 0, data.length, engine.getBlockSize());
-                finalOutput = new byte[padded.length];
-                for (int i = 0; i < padded.length; i += engine.getBlockSize()) {
-                    for (int j = 0; j < engine.getBlockSize(); j++) {
-                        feedback[j] ^= padded[i + j];
-                    }
-                    engine.encrypt(feedback, 0, feedback, 0);
-                    System.arraycopy(feedback, 0, finalOutput, i, engine.getBlockSize());
+        if (forEncryption) {
+            byte[] padded = padding.pad(data, 0, data.length, engine.getBlockSize());
+            finalOutput = new byte[padded.length];
+            for (int i = 0; i < padded.length; i += engine.getBlockSize()) {
+                for (int j = 0; j < engine.getBlockSize(); j++) {
+                    feedback[j] ^= padded[i + j];
                 }
-            } else {
-                byte[] decrypted = new byte[data.length];
-                for (int i = 0; i < data.length; i += engine.getBlockSize()) {
-                    byte[] temp = new byte[engine.getBlockSize()];
-                    System.arraycopy(data, i, temp, 0, engine.getBlockSize());
-                    engine.decrypt(data, i, decrypted, i);
-                    for (int j = 0; j < engine.getBlockSize(); j++) {
-                        decrypted[i + j] ^= feedback[j];
-                    }
-                    feedback = temp;
-                }
-                finalOutput = padding.unpad(decrypted, 0, decrypted.length, engine.getBlockSize());
+                engine.encrypt(feedback, 0, feedback, 0);
+                System.arraycopy(feedback, 0, finalOutput, i, engine.getBlockSize());
             }
-        } catch (InvalidKeyException e) {
-            throw new IllegalStateException("Error during CBC doFinal operation", e);
+        } else {
+            byte[] decrypted = new byte[data.length];
+            for (int i = 0; i < data.length; i += engine.getBlockSize()) {
+                byte[] temp = new byte[engine.getBlockSize()];
+                System.arraycopy(data, i, temp, 0, engine.getBlockSize());
+                engine.decrypt(data, i, decrypted, i);
+                for (int j = 0; j < engine.getBlockSize(); j++) {
+                    decrypted[i + j] ^= feedback[j];
+                }
+                feedback = temp;
+            }
+            finalOutput = padding.unpad(decrypted, 0, decrypted.length, engine.getBlockSize());
         }
         buffer.reset();
         return finalOutput;

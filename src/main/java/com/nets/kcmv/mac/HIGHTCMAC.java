@@ -36,7 +36,8 @@ public class HIGHTCMAC extends MacSpi {
             throw new java.security.InvalidAlgorithmParameterException("HIGHT-CMAC does not use parameters");
         }
 
-        engine.init(HIGHTEngine.Mode.ENCRYPT, key.getEncoded());
+        engine.setKey(key.getEncoded());
+        engine.setupEncRoundKeys();
 
         // Generate subkeys K1 and K2
         byte[] L = new byte[BLOCK_SIZE];

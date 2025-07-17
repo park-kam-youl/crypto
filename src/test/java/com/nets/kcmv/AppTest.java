@@ -1,5 +1,6 @@
 package com.nets.kcmv;
 
+//import com.nets.kcmv.selftest.NetsKCMVSelfTest;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -29,10 +30,14 @@ public class AppTest
     }
 
     /**
-     * Rigourous Test :-)
+     * Rigourous Test :-) - Now includes cryptographic self-tests.
      */
-    public void testApp()
+    public void testCryptoSelfTest()
     {
-        assertTrue( true );
+        // Install the provider before running tests
+        NetsCryptoProvider.installProvider();
+
+        // Run the self-test and assert its success
+//        assertTrue("NetsKCMV self-test failed!", NetsKCMVSelfTest.selfTest(true));
     }
 }

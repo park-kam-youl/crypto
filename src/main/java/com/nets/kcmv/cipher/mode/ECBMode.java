@@ -1,5 +1,6 @@
 package com.nets.kcmv.cipher.mode;
 
+import com.nets.kcmv.engine.blockcipher.BlockCipher;
 import com.nets.kcmv.engine.blockcipher.BlockCipherEngine;
 import com.nets.kcmv.padding.BlockCipherPadding;
 import com.nets.kcmv.padding.NoPadding;
@@ -31,12 +32,7 @@ public class ECBMode implements BlockCipherMode {
     @Override
     public void init(int opmode, Key key, AlgorithmParameterSpec params, SecureRandom random) throws InvalidKeyException, InvalidAlgorithmParameterException {
         this.forEncryption = (opmode == Cipher.ENCRYPT_MODE);
-        engine.setKey(key.getEncoded());
-        if (this.forEncryption) {
-            engine.setupEncRoundKeys();
-        } else {
-            engine.setupDecRoundKeys();
-        }
+        engine.init(this.forEncryption ? BlockCipher.Mode.ENCRYPT : BlockCipher.Mode.DECRYPT, key.getEncoded());
         buffer.reset();
     }
 
@@ -49,14 +45,10 @@ public class ECBMode implements BlockCipherMode {
         byte[] output = new byte[numBlocks * blockSize];
 
         for (int i = 0; i < numBlocks; i++) {
-            try {
-                if (forEncryption) {
-                    engine.encrypt(data, i * blockSize, output, i * blockSize);
-                } else {
-                    engine.decrypt(data, i * blockSize, output, i * blockSize);
-                }
-            } catch (InvalidKeyException e) {
-                // Should have been caught during init
+            if (forEncryption) {
+                engine.encrypt(data, i * blockSize, output, i * blockSize);
+            } else {
+                engine.decrypt(data, i * blockSize, output, i * blockSize);
             }
         }
         buffer.reset();
@@ -84,20 +76,12 @@ public class ECBMode implements BlockCipherMode {
             byte[] padded = padding.pad(data, 0, data.length, engine.getBlockSize());
             finalOutput = new byte[padded.length];
             for (int i = 0; i < padded.length; i += engine.getBlockSize()) {
-                try {
-                    engine.encrypt(padded, i, finalOutput, i);
-                } catch (InvalidKeyException e) {
-                    // Should not happen
-                }
+                engine.encrypt(padded, i, finalOutput, i);
             }
         } else {
             byte[] decrypted = new byte[data.length];
             for (int i = 0; i < data.length; i += engine.getBlockSize()) {
-                try {
-                    engine.decrypt(data, i, decrypted, i);
-                } catch (InvalidKeyException e) {
-                    // Should not happen
-                }
+                engine.decrypt(data, i, decrypted, i);
             }
 
             if (padding instanceof NoPadding) {

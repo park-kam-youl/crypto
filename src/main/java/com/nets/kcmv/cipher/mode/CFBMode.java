@@ -1,6 +1,6 @@
 package com.nets.kcmv.cipher.mode;
 
-import com.nets.kcmv.engine.blockcipher.BlockCipherEngine;
+import com.nets.kcmv.engine.blockcipher.BlockCipher;
 import com.nets.kcmv.padding.BlockCipherPadding;
 import com.nets.kcmv.padding.NoPadding;
 import com.nets.kcmv.padding.PKCS5Padding;
@@ -20,14 +20,14 @@ import java.util.Arrays;
 
 public class CFBMode implements BlockCipherMode {
 
-    private BlockCipherEngine engine;
+    private BlockCipher engine;
     private boolean forEncryption;
     private byte[] iv;
     private byte[] feedback;
     private BlockCipherPadding padding;
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
-    public CFBMode(BlockCipherEngine engine) {
+    public CFBMode(BlockCipher engine) {
         this.engine = engine;
         this.feedback = new byte[engine.getBlockSize()];
         this.padding = new NoPadding(); // Default to NoPadding
@@ -47,8 +47,7 @@ public class CFBMode implements BlockCipherMode {
         }
         System.arraycopy(this.iv, 0, this.feedback, 0, engine.getBlockSize());
 
-        engine.setKey(key.getEncoded());
-        engine.setupEncRoundKeys();
+        engine.init(this.forEncryption ? BlockCipher.Mode.ENCRYPT : BlockCipher.Mode.DECRYPT, key.getEncoded());
         buffer.reset();
     }
 
@@ -62,11 +61,7 @@ public class CFBMode implements BlockCipherMode {
 
         for (int i = 0; i < numBlocks; i++) {
             byte[] keystream = new byte[blockSize];
-            try {
-                engine.encrypt(feedback, 0, keystream, 0);
-            } catch (InvalidKeyException e) {
-                throw new IllegalStateException("Error during CFB update operation", e);
-            }
+            engine.encrypt(feedback, 0, keystream, 0);
 
             if (forEncryption) {
                 for (int j = 0; j < blockSize; j++) {
@@ -106,11 +101,7 @@ public class CFBMode implements BlockCipherMode {
             finalOutput = new byte[padded.length];
             for (int i = 0; i < padded.length; i += engine.getBlockSize()) {
                 byte[] keystream = new byte[engine.getBlockSize()];
-                try {
-                    engine.encrypt(feedback, 0, keystream, 0);
-                } catch (InvalidKeyException e) {
-                    throw new IllegalStateException("Error during CFB encryption (doFinal)", e);
-                }
+                engine.encrypt(feedback, 0, keystream, 0);
 
                 for (int j = 0; j < engine.getBlockSize(); j++) {
                     finalOutput[i + j] = (byte) (padded[i + j] ^ keystream[j]);
@@ -124,11 +115,7 @@ public class CFBMode implements BlockCipherMode {
             byte[] decrypted = new byte[data.length];
             for (int i = 0; i < data.length; i += engine.getBlockSize()) {
                 byte[] keystream = new byte[engine.getBlockSize()];
-                try {
-                    engine.encrypt(feedback, 0, keystream, 0);
-                } catch (InvalidKeyException e) {
-                    throw new IllegalStateException("Error during CFB decryption (doFinal)", e);
-                }
+                engine.encrypt(feedback, 0, keystream, 0);
 
                 System.arraycopy(data, i, feedback, 0, engine.getBlockSize());
                 for (int j = 0; j < engine.getBlockSize(); j++) {
